@@ -1,0 +1,43 @@
+{
+  "provider": "anthropic-compatible",
+  "model": "claude-opus-4-8",
+  "api_key_configured": true,
+  "endpoint_reachable": true,
+  "model_exists": true,
+  "vision_supported": true,
+  "json_mode_supported": false,
+  "usage_available": true,
+  "latency_ms": 35.79033399000764,
+  "ready": true,
+  "error_type": null,
+  "error_message": null,
+  "capabilities": {
+    "supports_images": true,
+    "supports_multiple_images": true,
+    "supports_json_mode": false,
+    "supports_json_schema": false,
+    "returns_usage": true,
+    "notes": [
+      "Anthropic Messages API: no JSON response_format; coarse provider uses prompt-forced JSON + parse_response_payload.",
+      "x-api-key + anthropic-version headers (not Authorization: Bearer)."
+    ]
+  },
+  "_note": "LOCAL MOCK PROBE \u2014 network_scope=local_mock; NOT a real external API verification",
+  "_real_vision_api_used": false,
+  "_network_scope": "local_mock",
+  "_endpoint_host": "127.0.0.1",
+  "_decoded_capabilities": {
+    "endpoint_reachable": true,
+    "authentication_accepted": true,
+    "model_available": true,
+    "text_request_supported": true,
+    "image_input_supported": true,
+    "multiple_images_supported": true,
+    "json_output_supported": "prompt_forced_json (Anthropic Messages API has no native response_format)",
+    "usage_returned": true,
+    "response_received": true,
+    "latency_ms": 35.79033399000764,
+    "network_request_sent": true,
+    "network_scope": "local_mock"
+  }
+}

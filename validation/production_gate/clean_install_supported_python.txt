@@ -1,0 +1,108 @@
+=== clean install supported python (3.12.13) ===
+python:
+Python 3.12.13
+
+--- video-analyst --help ---
+                                                                                
+ Usage: video-analyst [OPTIONS] COMMAND [ARGS]...                               
+                                                                                
+ Video Analyst Phase 1 — environment, audio extract, timestamped subtitles.     
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --version          Show version and exit                                     │
+│ --help             Show this message and exit.                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ doctor          Detect Python, FFmpeg, ffprobe, ASR backends, vision         │
+│                 provider, disk, config.                                      │
+│ provider-check  Probe vision provider capabilities with a minimal test       │
+│                 request.                                                     │
+│ init            Generate .env.example + YAML config template (no real keys). │
+
+--- doctor --json ---
+{
+  "python_ok": true,
+  "python_version": "3.12.13",
+  "ffmpeg": true,
+  "ffmpeg_path": "/opt/homebrew/Cellar/ffmpeg/8.1.2_1/bin/ffmpeg",
+  "ffprobe_path": "/opt/homebrew/Cellar/ffmpeg/8.1.2_1/bin/ffprobe",
+  "groq_api_key_configured": false,
+  "local_whisper_installed": false,
+  "vision_api_key_configured": false,
+  "os_family": "macos",
+  "ready": true,
+  "version": "0.6.0"
+}
+
+--- provider-check mock ---
+Provider: mock
+Model: mock-vision-1
+API Key configured: True
+Endpoint reachable: True
+Model exists: True
+Vision supported: True
+JSON mode: True
+Usage available: False
+Ready: True
+
+--- init --help ---
+                                                                                
+ Usage: video-analyst init [OPTIONS]                                            
+                                                                                
+ Generate .env.example + YAML config template (no real keys).                   
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --output  -o      <path>  Where to write the .env.example template.          │
+│                           [default: .env.example]                            │
+│ --config          <path>  Where to write the YAML config (API Key NOT        │
+│                           written here).                                     │
+│                           [default:                                          │
+│                           /Users/mac/.config/video-analyst/config.yaml]      │
+
+--- run --help ---
+                                                                                
+ Usage: video-analyst run [OPTIONS] {video}                                     
+                                                                                
+ One-shot end-to-end: Phase 1 → Phase 2 → Epic 2 → Epic 3 → Epic 4 → Epic 5     
+ report.                                                                        
+                                                                                
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    video      <path>  Source video path. [required]                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --output              -o                        <path>   [default:           │
+│                                                          video_analyst_outp… │
+│ --user-request                                  <str>                        │
+│ --through                                       <str>    subtitles | coarse  │
+│                                                          | refinement | fine │
+│                                                          | report            │
+│                                                          [default: report]   │
+│ --resume                  --no-resume                    [default: resume]   │
+
+--- report --help ---
+                                                                                
+ Usage: video-analyst report [OPTIONS] {video}                                  
+                                                                                
+ Run Epic 5: terminal refinement (optional) + final report generation.          
+                                                                                
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    video      <path>  Video path (used only for naming + run summary).     │
+│                         [required]                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --output              -o                        <path>  Output directory     │
+│                                                         containing Epic 1–4  │
+
+--- clean --help ---
+                                                                                
+ Usage: video-analyst clean [OPTIONS] {output}                                  
+                                                                                
+ Clean generated outputs. Never deletes source video.                           
+                                                                                
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    output      <path>  Output directory to clean. [required]               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --analysis-only          Remove analysis/ only.                              │
+│ --cache-only             Remove cache/ only.                                 │
+│ --all-generated          Remove all generated outputs (keep source video).   │

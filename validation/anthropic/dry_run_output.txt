@@ -1,0 +1,16 @@
+=== Dry Run Estimate ===
+Provider mode:       anthropic-compatible
+Coarse batches:      0 total, 0 cached, 0 pending
+Fine batches:        0 total, 0 cached, 0 pending
+Terminal batches:    0 total, 0 cached, 0 pending
+Total pending calls: 0
+Total pending images: 0
+Estimated cost:      null (cost_status=unknown; 
+pricing_source=no_price_snapshot)
+Known model limits:  max_frames_per_batch=20
+Warnings:
+  - cannot estimate cost for anthropic-compatible/gpt-4o-mini; use 
+--confirm-api-call to proceed (unknown cost will not block dry run)
+>>> No real API calls needed (mock or fully cached).
+Budget check failed: cost not estimable and --confirm-api-call not set; refusing
+to invoke real API with unknown cost

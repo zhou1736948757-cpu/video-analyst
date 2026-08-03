@@ -1,0 +1,9 @@
+{
+  "mock_e2e_verified": true,
+  "mock_out_dir": "/tmp/video-analyst-mock-out",
+  "runtime_status": {"completion_status": "final", "provider_mode": "mock", "terminal_refinement_status": "not_required", "analysis_completeness": "complete", "legacy_status": "final"},
+  "status": "mock_validation",
+  "provider_mode": "mock",
+  "real_vision_api_used": false,
+  "telemetry": {"total_calls": 2, "successful_calls": 2, "failed_calls": 0, "cache_hits": 0, "network_calls_sent": 0, "responses_received": 2, "real_vision_api_used": false, "providers_used": ["mock"], "models_used": ["mock-vision-1", "mock-fine-vision-1"], "stages_used": ["coarse_vision", "fine_vision"], "total_retries": 0, "total_input_images": 25, "total_input_tokens": null, "total_output_tokens": null, "total_tokens": null, "total_estimated_cost": null, "currency": null, "calls_by_stage": {"coarse_vision": 1, "fine_vision": 1}, "calls_by_provider": {"mock": 2}, "errors_by_type": {}, "token_status_summary": {"unavailable": 2}}
+}

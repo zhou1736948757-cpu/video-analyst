@@ -1,0 +1,23 @@
+{
+  "provider": "mock",
+  "model": "mock-vision-1",
+  "api_key_configured": true,
+  "endpoint_reachable": true,
+  "model_exists": true,
+  "vision_supported": true,
+  "json_mode_supported": true,
+  "usage_available": false,
+  "latency_ms": null,
+  "ready": true,
+  "error_type": null,
+  "error_message": null,
+  "capabilities": {
+    "supports_images": true,
+    "supports_multiple_images": true,
+    "supports_json_mode": true,
+    "returns_usage": false,
+    "notes": [
+      "Mock provider; no network calls"
+    ]
+  }
+}

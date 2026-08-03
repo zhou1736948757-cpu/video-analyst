@@ -1,0 +1,19 @@
+---SECURITY SCAN---
+## Mock E2E output scan
+[mock-out scan: empty=clean]
+
+## BYOK output scan (fake keys in env)
+[byok-out scan: empty=clean]
+
+## Wheel scan
+[wheel scan: empty=clean]
+
+## .env.example scan
+# Copy to .env and fill in. Never commit real keys.
+GROQ_API_KEY=
+
+# Optional: override shared tools directory (contains bin/ffmpeg, bin/ffprobe)
+# VIDEO_ANALYST_TOOLS_DIR=~/.video-analyst/tools
+
+# Optional: force local Whisper Small (skip Groq)
+# VIDEO_ANALYST_FORCE_LOCAL_WHISPER=0

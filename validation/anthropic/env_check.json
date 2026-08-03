@@ -1,0 +1,10 @@
+{
+  "VIDEO_ANALYST_ANTHROPIC_API_KEY": "NOT SET",
+  "VIDEO_ANALYST_ANTHROPIC_BASE_URL": "NOT SET",
+  "VIDEO_ANALYST_ANTHROPIC_MODEL": "NOT SET",
+  "GROQ_API_KEY": "NOT SET in current shell (set in .env file but not exported)",
+  "decision": "skip_real_verification",
+  "reason": "All three Anthropic env vars are NOT SET. Real Capability Probe, real video dry run, real run, cache rerun, real-run security scan, and human validation cannot be performed. release_status remains release_candidate.",
+  "User explicitly approved third-party relay and accepted its data exposure risk": true,
+  "warning_logged": true
+}

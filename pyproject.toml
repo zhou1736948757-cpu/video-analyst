@@ -1,0 +1,79 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "video-analyst"
+version = "0.6.0"
+description = "Video Analyst — agent-assisted local video analysis (scripts extract frames; current Agent inspects images)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Video Analyst" }]
+keywords = ["video", "analysis", "whisper", "asr", "agent", "ffmpeg", "local"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Video",
+]
+dependencies = [
+    "pydantic>=2.6",
+    "typer>=0.12",
+    "httpx>=0.27",
+    "rich>=13.7",
+    "python-dotenv>=1.0",
+    "Pillow>=10.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+local-whisper = [
+    "openai-whisper>=20231117",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+    "build>=1.2",
+]
+
+[project.scripts]
+video-analyst = "video_analyst.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/video-analyst/video-analyst"
+Issues = "https://github.com/video-analyst/video-analyst/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/video_analyst"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src/video_analyst" = "video_analyst"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/docs",
+    "/.grok",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/SECURITY.md",
+    "/pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "real_api: tests that call a real vision API (skipped by default; set VIDEO_ANALYST_REAL_API=1 to run)",
+    "manual: tests requiring manual human review",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

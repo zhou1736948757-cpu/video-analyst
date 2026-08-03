@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.env.local
+.env
+.env.*
+!.env.example
+
+# Output / media
+video_analyst_output/
+output/
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.mp3
+*.wav
+!tests/fixtures/**
+
+# Tools / models (never commit binaries)
+.video-analyst/
+tools/ffmpeg/
+*.pt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store

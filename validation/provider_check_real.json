@@ -1,0 +1,21 @@
+{
+  "provider": "openai-compatible",
+  "model": "gpt-4o-mini",
+  "api_key_configured": false,
+  "endpoint_reachable": false,
+  "model_exists": false,
+  "vision_supported": false,
+  "json_mode_supported": false,
+  "usage_available": false,
+  "latency_ms": null,
+  "ready": false,
+  "error_type": "missing_api_key",
+  "error_message": "API key not set in env VIDEO_ANALYST_VISION_API_KEY",
+  "capabilities": {
+    "supports_images": false,
+    "supports_multiple_images": false,
+    "supports_json_mode": false,
+    "returns_usage": false,
+    "notes": []
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "provider": "anthropic-compatible",
+  "provider_mode": "anthropic-compatible",
+  "vision_provider": "anthropic-compatible",
+  "video": "/tmp/va_validation/synthetic_10s.mp4",
+  "output_dir": "/tmp/VA_DRYRUN_TEST",
+  "api_key_env": "VIDEO_ANALYST_ANTHROPIC_API_KEY",
+  "api_key_set": false,
+  "network_request_sent": false,
+  "response_received": false,
+  "dry_run_executed": true,
+  "coarse_batches": {
+    "total": 0,
+    "cached": 0,
+    "pending": 0
+  },
+  "fine_batches": {
+    "total": 0,
+    "cached": 0,
+    "pending": 0
+  },
+  "terminal_batches": {
+    "total": 0,
+    "cached": 0,
+    "pending": 0
+  },
+  "total_pending_calls": 0,
+  "total_pending_images": 0,
+  "estimated_cost": null,
+  "cost_status": "unknown",
+  "pricing_source": "no_price_snapshot",
+  "currency": null,
+  "known_model_limits": ["max_frames_per_batch=20"],
+  "warnings": [
+    "cannot estimate cost for anthropic-compatible/gpt-4o-mini; use --confirm-api-call to proceed (unknown cost will not block dry run)"
+  ],
+  "real_vision_api_used": false,
+  "notes": [
+    "Dry run executed without ANTHROPIC_API_KEY.",
+    "No HTTP requests sent (no telemetry directory created).",
+    "Batch counts are 0 because no Phase 1/2 batch planning has run yet; estimate only reflects existing cache state.",
+    "estimated_cost is null (cost_status=unknown) — must not be coerced to 0."
+  ]
+}

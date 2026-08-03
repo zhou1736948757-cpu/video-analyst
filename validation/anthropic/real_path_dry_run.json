@@ -1,0 +1,40 @@
+{
+  "video": "/Users/mac/Downloads/【🤯天下苦对话框久矣！】打破线性聊天，让复杂知识层层展开 - Original.mp4",
+  "video_validation": {
+    "exists": true,
+    "is_file": true,
+    "duration_seconds": 59.434667,
+    "video_streams": 1,
+    "audio_streams": 1
+  },
+  "provider": "anthropic-compatible",
+  "model_resolved": "claude-opus-4-8",
+  "model_fallback_to_gpt-4o-mini": false,
+  "dry_run": {
+    "exit_code": 0,
+    "coarse_batches_total": 0,
+    "coarse_batches_cached": 0,
+    "coarse_batches_pending": 0,
+    "fine_batches_total": 0,
+    "fine_batches_cached": 0,
+    "fine_batches_pending": 0,
+    "terminal_batches_total": 0,
+    "terminal_batches_cached": 0,
+    "terminal_batches_pending": 0,
+    "total_pending_calls": 0,
+    "total_pending_images": 0,
+    "estimated_cost": null,
+    "cost_status": "unknown",
+    "pricing_source": "no_price_snapshot"
+  },
+  "network_request_sent": false,
+  "telemetry_directory_created": false,
+  "budget_check_failed_message_shown": false,
+  "notes": [
+    "Dry run exited cleanly with exit 0 (Bug 1 fixed: dry run early-returns, no Budget check gate).",
+    "Model resolved to claude-opus-4-8 (Bug 2 fixed: Anthropic no longer falls back to gpt-4o-mini).",
+    "Unicode/special characters in video path handled correctly (Bug 3 fixed: video precheck passed).",
+    "No API key required for dry run, no --confirm-api-call required.",
+    "Batches show 0 pending because no Phase 1/2 batch planning has run yet (fresh output dir)."
+  ]
+}
