@@ -68,6 +68,13 @@ class Phase2Config:
     scene_threshold: float = 0.3  # ffmpeg select scene score
     max_scene_frames: int = 200
     batch_seconds: float = 20.0
+    # Pixel-only coarse-input reduction.  This is deliberately independent of
+    # scene semantics: only the previous kept frame's grayscale thumbnail is
+    # compared, while scene and user-pinned frames are protected.
+    coarse_dedupe_enabled: bool = True
+    coarse_dedupe_threshold: float = 2.0
+    coarse_dedupe_algorithm_version: str = "gray-thumbnail-delta-v1"
+    coarse_dedupe_thumbnail_size: int = 16
 
 
 @dataclass

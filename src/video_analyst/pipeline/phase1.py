@@ -42,6 +42,7 @@ def run_phase1(
     user_request: str = "",
     ffmpeg_env: FFmpegEnvironment | None = None,
     config: AppConfig | None = None,
+    pinned_timestamps: list[float] | None = None,
 ) -> SubtitleDocument:
     """
     Phase 1 (+ optional Phase 2 prep):
@@ -312,6 +313,7 @@ def run_phase1(
                 resume
                 and state.has(PipelineStage.PHASE2_VISUAL_BATCHES)
                 and layout.phase2_batches_json.is_file()
+                and not pinned_timestamps
             ):
                 log.info("Resume: phase2 batches from cache")
             else:
@@ -322,6 +324,7 @@ def run_phase1(
                     cfg=cfg.phase2,
                     user_request=user_request,
                     resume=resume,
+                    pinned_timestamps=pinned_timestamps,
                 )
                 state.phase2_batches_path = result.batches_path
                 state.mark(PipelineStage.PHASE2_FIXED_FRAMES)

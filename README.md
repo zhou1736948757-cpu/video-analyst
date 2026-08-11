@@ -5,6 +5,13 @@
 Local Python / FFmpeg scripts handle media processing.
 The **current conversation Agent** inspects extracted frames and writes visual analysis.
 
+![Video Analyst — local video analysis](assets/video-analyst-hero.png)
+
+Video Analyst is a local-first Skill for turning a video into inspectable,
+timestamped visual evidence. It prepares deterministic media inputs, pauses for
+the current conversation Agent to actually open the images, and then validates
+the Agent's existing analysis schemas before producing a report.
+
 ```text
 本地脚本粗抽帧
 → 当前对话 Agent 真正查看图片
@@ -54,6 +61,27 @@ pip install -e .
 pip install -e '.[dev]'
 ```
 
+After installing the package, run the explicit setup command. It installs
+missing **FFmpeg + ffprobe** and the official **yt-dlp** executable by default
+into the shared Video Analyst tools directory. The package installation itself
+does not silently execute network downloads.
+
+```bash
+video-analyst setup --yes
+```
+
+Skip either dependency when it is already managed by your machine:
+
+```bash
+video-analyst setup --yes --no-ffmpeg
+video-analyst setup --yes --no-yt-dlp
+video-analyst setup --yes --no-ffmpeg --no-yt-dlp
+```
+
+Use `video-analyst doctor --json` to verify Python, FFmpeg, ffprobe, and
+yt-dlp. yt-dlp is needed only for the explicit public-URL import layer; the
+core local-file pipeline does not require a URL downloader.
+
 ## Unique five-stage pipeline
 
 ```text
@@ -64,14 +92,20 @@ Stage 4  fine-agent-analysis     current Agent looks at images
 Stage 5  finalize                local scripts (deterministic)
 ```
 
+![Video Analyst workflow](assets/video-analyst-workflow.png)
+
 Optional one-shot terminal refinement between Stage 4 and 5 (never a third round).
 
 ## CLI (product commands)
 
 ```bash
 video-analyst doctor
+video-analyst import-url URL -o OUTPUT --subtitle-language all
+# → writes OUTPUT/source/video.* and OUTPUT/source/manifest.json
 video-analyst prepare VIDEO -o OUTPUT
 # → Agent inspects analysis/coarse/inputs/ and writes coarse JSON
+video-analyst inspect-prepare VIDEO -o OUTPUT --at 12.5 --at 01:03
+# → independent sidecar under analysis/inspection/; does not change workflow state
 video-analyst validate-coarse OUTPUT
 video-analyst refine-prepare VIDEO -o OUTPUT
 # → Agent inspects fine contact sheets / detail frames and writes fine JSON
@@ -83,6 +117,21 @@ video-analyst finalize VIDEO -o OUTPUT
 video-analyst status OUTPUT
 video-analyst clean OUTPUT --all-generated
 ```
+
+`import-url` (also available as `download-source`) is an explicit public URL
+import layer. It defaults to `--no-playlist`, supports ordinary public Bilibili
+single-video URLs, and accepts `zh-Hans`, `zh-Hant`, `zh`, `ja`, `en`, or `all`
+subtitle selection. Browser sessions are never read; cookies are used only
+when an explicit `--cookies FILE` is supplied and are not copied into the
+source manifest. The resulting local path must be passed to `prepare`; URL
+handling is not implicit in the local-file pipeline.
+
+`inspect-prepare` (alias `focus-prepare`) accepts repeated absolute `--at`
+timestamps and strict `--start` / `--end` bounds in `SS`, `MM:SS`, or
+`HH:MM:SS` form. Its `--fps` is limited to 5, 10, or 15. The manifest lists
+directly openable absolute frame paths, timestamps, and contact sheets; pinned
+frames are protected from pixel-only dedupe. Inspection is a sidecar and never
+writes coarse/fine analysis JSON or advances workflow status.
 
 `video-analyst run VIDEO -o OUTPUT` advances **local** stages only and **pauses**
 when the Agent must inspect images. It never invents visual analysis via mock
@@ -111,15 +160,22 @@ vision API Key / Base URL / model website requirements
 ## User workflow (with a coding Agent)
 
 1. Ask the Agent to run `video-analyst prepare VIDEO -o OUT`
-2. Agent **opens and views** coarse frames + contact sheets
+2. Agent **opens and views every listed coarse frame and contact sheet**, aligning each observation to the manifest timestamp
 3. Agent writes coarse analysis + refinement plan (existing schemas)
 4. Agent runs `validate-coarse` then `refine-prepare`
-5. Agent **opens and views** fine contact sheets + detail frames
+5. Agent **opens and views every listed fine contact sheet and detail frame**, requesting on-demand `--at` inspection frames when a question remains unresolved
 6. Agent writes fine analysis (existing schemas)
 7. Agent runs `validate-fine` then `finalize` (or terminal once if needed)
 8. User opens `report/report.md`
 
 A plain terminal without an image-capable Agent **cannot** complete vision stages.
+
+Transcript and subtitle text are supporting context only. The Agent may choose
+to request an explicit `inspect-prepare --at ...` frame after reading a cue,
+but no script parses transcript language or other text to infer a semantic
+moment, scene, motion, or transition. `finalize` consumes only validated
+existing Pydantic coarse/fine/terminal schemas and real `EVID-*` evidence; it
+never consumes free-form inspection notes.
 
 ## Output layout
 
@@ -134,6 +190,7 @@ OUT/
   phase2/
     frames_1fps/
     frames_scene/
+    frames_pinned/            # optional explicit --at coarse frames
     visual_batches.json
   analysis/
     coarse/
@@ -145,6 +202,11 @@ OUT/
       batches/<batch_id>.json   # Agent writes CoarseBatchAnalysis
       video_structure.json
       refinement_plan.json
+    inspection/               # independent inspect-prepare sidecar
+      manifest.json
+      frames/
+      dropped_candidates/
+      contact_sheets/
     refinement/                 # Stage 3 local extraction
       frames/
       contact_sheets/

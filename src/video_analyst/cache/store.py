@@ -28,6 +28,7 @@ class OutputLayout:
     phase2_dir: Path
     phase2_fixed_frames_dir: Path
     phase2_scene_frames_dir: Path
+    phase2_pinned_frames_dir: Path
     media_info_json: Path
     audio_mp3: Path
     asr_manifest_json: Path
@@ -121,6 +122,7 @@ class OutputLayout:
         phase2_dir = root / "phase2"
         phase2_fixed = phase2_dir / "frames_1fps"
         phase2_scene = phase2_dir / "frames_scene"
+        phase2_pinned = phase2_dir / "frames_pinned"
         analysis_dir = root / "analysis"
         coarse_dir = analysis_dir / "coarse"
         coarse_batches_dir = coarse_dir / "batches"
@@ -164,6 +166,7 @@ class OutputLayout:
             phase2_dir,
             phase2_fixed,
             phase2_scene,
+            phase2_pinned,
             analysis_dir,
             coarse_dir,
             coarse_batches_dir,
@@ -208,6 +211,7 @@ class OutputLayout:
             phase2_dir=phase2_dir,
             phase2_fixed_frames_dir=phase2_fixed,
             phase2_scene_frames_dir=phase2_scene,
+            phase2_pinned_frames_dir=phase2_pinned,
             media_info_json=root / "media_info.json",
             audio_mp3=audio_dir / "audio.mp3",
             asr_manifest_json=asr_dir / "manifest.json",

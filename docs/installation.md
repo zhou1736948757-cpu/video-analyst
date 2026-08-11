@@ -3,10 +3,8 @@
 ## Prerequisites
 
 - **Python 3.11+** (3.11, 3.12, 3.13 supported; 3.14 experimental)
-- **FFmpeg + ffprobe** (system dependency; install via your OS package manager)
-  - macOS: `brew install ffmpeg`
-  - Ubuntu/Debian: `sudo apt install ffmpeg`
-  - Or run `video-analyst setup` after install
+- **FFmpeg + ffprobe** (downloaded by the explicit setup command by default)
+- **yt-dlp** (downloaded by the explicit setup command by default for public URL import)
 - **Pillow** (auto-installed with the package; for contact-sheet + image probing)
 
 ## Install from source
@@ -22,6 +20,29 @@ For development / tests:
 ```bash
 pip install -e '.[dev]'
 ```
+
+## Install shared media tools
+
+The Python package install is side-effect free. Run `setup` when you want the
+Skill to provision missing media tools; it downloads/installs FFmpeg + ffprobe
+and yt-dlp by default, after confirmation unless `--yes` is supplied.
+
+```bash
+video-analyst setup --yes
+```
+
+Skip either tool explicitly:
+
+```bash
+video-analyst setup --yes --no-ffmpeg
+video-analyst setup --yes --no-yt-dlp
+video-analyst setup --yes --no-ffmpeg --no-yt-dlp
+```
+
+FFmpeg uses the platform's trusted package manager when available. yt-dlp is
+downloaded from its official release endpoint into the shared tools directory.
+No browser session or cookie store is read by setup. Set
+`VIDEO_ANALYST_TOOLS_DIR` to choose another shared tools root.
 
 For local Whisper ASR (no cloud dependency):
 
@@ -41,14 +62,15 @@ pip install dist/video_analyst-0.6.0-py3-none-any.whl
 ```bash
 video-analyst doctor
 video-analyst --help
-video-analyst provider-check --vision-provider mock
+video-analyst doctor --json
 ```
 
-`doctor` should report `ready` if Python + FFmpeg are present.
+`doctor` reports the local-file pipeline as `ready` when Python + FFmpeg are
+present, and reports `url_import_ready` separately for yt-dlp.
 
-## Configure providers (optional, BYOK)
+## Optional ASR configuration
 
-Video Analyst is Bring-Your-Own-Key. No keys ship with the package.
+No vision API key is used by the product path. No keys ship with the package.
 
 ```bash
 video-analyst init
@@ -59,15 +81,6 @@ Copy `.env.example` to `.env` and fill in:
 
 ```bash
 GROQ_API_KEY=...                      # optional, for cloud Whisper ASR
-VIDEO_ANALYST_VISION_API_KEY=...      # optional, for OpenAI-compatible vision
-VIDEO_ANALYST_VISION_BASE_URL=https://api.openai.com/v1
-VIDEO_ANALYST_VISION_MODEL=gpt-4o-mini
-```
-
-Then verify the vision provider:
-
-```bash
-video-analyst provider-check --vision-provider openai-compatible
 ```
 
 ## Python version support

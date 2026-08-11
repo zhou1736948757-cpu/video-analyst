@@ -177,7 +177,8 @@ def ensure_tools_directory() -> Path:
     if not readme.exists():
         readme.write_text(
             "Video Analyst shared tools directory.\n"
-            "Place portable ffmpeg/ffprobe binaries in bin/ if not using a system package manager.\n"
+            "Place portable ffmpeg/ffprobe/yt-dlp binaries in bin/ if not using a system package manager.\n"
+            "`video-analyst setup` installs missing FFmpeg and yt-dlp by default.\n"
             "Set VIDEO_ANALYST_TOOLS_DIR to override this location.\n",
             encoding="utf-8",
         )

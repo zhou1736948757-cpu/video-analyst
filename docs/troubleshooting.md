@@ -19,34 +19,16 @@ Only needed for cloud Whisper ASR. Options:
 3. Skip ASR entirely (Phase 1 will hard-fail if no backend is available — never
    fakes success).
 
-### `Missing API key for vision provider`
+### `yt-dlp: missing` from `video-analyst doctor`
 
-- For `openai-compatible`: set `VIDEO_ANALYST_VISION_API_KEY`.
-- Mock provider needs no key — use `--vision-provider mock` for offline runs.
+yt-dlp is needed only for explicit public URL import. Run:
 
-### `vision API 429` (rate limit)
+```bash
+video-analyst setup --yes --no-ffmpeg
+```
 
-- The transport layer retries 429 with exponential backoff (default 2 retries).
-- Increase: `--max-retries 4`.
-- Reduce images per batch: lower `batch_max_frames` in config.
-
-### `vision API 500 / 502 / 503`
-
-- Retried automatically (5xx is retryable).
-- If persistent, the provider is down — use `--vision-provider mock` or wait.
-
-### `vision response not valid JSON`
-
-- The response parser strips markdown fences and surrounding prose, then
-  attempts one deterministic repair request.
-- If repair fails, the batch is marked failed (not retried indefinitely).
-- Check `analysis/fine/raw/<batch>_response.json` for the raw response.
-
-### `cannot estimate cost ... --confirm-api-call not set`
-
-- The pricing snapshot doesn't cover your model.
-- Either add the model to a pricing YAML, or pass `--confirm-api-call` to
-  proceed with unknown cost.
+The local-file pipeline remains usable without it. Browser sessions and cookie
+stores are never read implicitly.
 
 ### `TerminalRefinementPlanValidationError`
 

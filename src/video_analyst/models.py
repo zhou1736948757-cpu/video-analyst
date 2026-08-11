@@ -380,8 +380,10 @@ class VisualBatch(BaseModel):
 class Phase2PrepareResult(BaseModel):
     fixed_frames_dir: str
     scene_frames_dir: str
+    pinned_frames_dir: str | None = None
     fixed_frame_count: int = 0
     scene_frame_count: int = 0
+    pinned_frame_count: int = 0
     batches_path: str
     batch_count: int = 0
     subtitle_metadata: SubtitleMetadata = Field(default_factory=SubtitleMetadata)

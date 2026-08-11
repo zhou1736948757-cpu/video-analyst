@@ -1,7 +1,12 @@
-# Providers
+# Providers (legacy reference)
 
-Video Analyst supports three vision providers and two ASR backends. All are
-Bring-Your-Own-Key (BYOK) — no keys ship with the package.
+The current product contract uses `vision_execution_mode=in_session_agent`:
+the current conversation Agent opens the prepared images and writes the
+existing coarse/fine schemas. It does not execute mock, OpenAI-compatible,
+Anthropic-compatible, or other external vision providers, and it does not
+require a vision API key. The historical provider details below are retained
+only for report/schema compatibility and should not be used as runtime
+instructions.
 
 ## Vision providers
 

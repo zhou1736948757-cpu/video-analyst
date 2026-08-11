@@ -13,6 +13,14 @@ class FFmpegInstallError(VideoAnalystError):
     """FFmpeg installation failed or was declined."""
 
 
+class YtDlpNotFoundError(VideoAnalystError):
+    """yt-dlp is missing or not runnable."""
+
+
+class YtDlpInstallError(VideoAnalystError):
+    """yt-dlp installation failed or was declined."""
+
+
 class EnvironmentBlockedError(VideoAnalystError):
     """Required runtime environment checks failed."""
 
@@ -79,6 +87,14 @@ class SubtitleReviewError(VideoAnalystError):
 
 class Phase2PrepareError(VideoAnalystError):
     """Phase 2 input preparation failed."""
+
+
+class InspectionPrepareError(VideoAnalystError):
+    """Independent inspection frame preparation failed."""
+
+
+class SourceImportError(VideoAnalystError):
+    """Public URL/source import failed before the local-file pipeline."""
 
 
 # ---- Epic 2: Vision / Coarse Analysis ----

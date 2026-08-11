@@ -44,8 +44,8 @@ dev = [
 video-analyst = "video_analyst.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/video-analyst/video-analyst"
-Issues = "https://github.com/video-analyst/video-analyst/issues"
+Homepage = "https://github.com/zhou1736948757-cpu/video-analyst"
+Issues = "https://github.com/zhou1736948757-cpu/video-analyst/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/video_analyst"]
@@ -58,6 +58,8 @@ include = [
     "/src",
     "/tests",
     "/docs",
+    "/skills",
+    "/assets",
     "/.grok",
     "/README.md",
     "/LICENSE",

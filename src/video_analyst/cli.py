@@ -24,10 +24,13 @@ from video_analyst.env.setup_ffmpeg import (
     install_ffmpeg,
     recommended_install_commands,
 )
+from video_analyst.env.setup_ytdlp import install_ytdlp
 from video_analyst.exceptions import (
     EnvironmentBlockedError,
     FFmpegInstallError,
     FFmpegNotFoundError,
+    YtDlpInstallError,
+    YtDlpNotFoundError,
     VideoAnalystError,
 )
 from video_analyst.models import SubtitleVersion
@@ -88,6 +91,12 @@ def _print_doctor() -> int:
         console.print("FFmpeg: missing")
         console.print("ffprobe: missing")
 
+    if report.yt_dlp:
+        console.print(f"yt-dlp: OK — {report.yt_dlp.path}")
+        console.print(f"yt-dlp version: {report.yt_dlp.version}")
+    else:
+        console.print("yt-dlp: missing (public URL import unavailable)")
+
     if report.groq_api_key_configured:
         console.print("Groq API Key: configured (ASR / subtitle calibration only)")
     else:
@@ -119,6 +128,9 @@ def _print_doctor() -> int:
         for note in plan.notes:
             console.print(f"  {note}")
         console.print("\nOr run: video-analyst setup")
+    elif report.yt_dlp is None:
+        console.print("\nyt-dlp is optional for local files but required by import-url.")
+        console.print("Run: video-analyst setup --no-ffmpeg")
     return 1
 
 
@@ -141,6 +153,9 @@ def doctor_cmd(
             "ffmpeg": report.ffmpeg is not None,
             "ffmpeg_path": str(report.ffmpeg.ffmpeg_path) if report.ffmpeg else None,
             "ffprobe_path": str(report.ffmpeg.ffprobe_path) if report.ffmpeg else None,
+            "yt_dlp": report.yt_dlp is not None,
+            "yt_dlp_path": str(report.yt_dlp.path) if report.yt_dlp else None,
+            "url_import_ready": report.url_import_ready,
             "groq_api_key_configured": report.groq_api_key_configured,
             "local_whisper_installed": report.local_whisper_installed,
             "vision_api_key_required": False,
@@ -161,26 +176,52 @@ def setup_cmd(
         False,
         "--yes",
         "-y",
-        help="Skip interactive confirmation (still prints planned commands).",
+        help="Skip confirmation for both downloads (still prints planned actions).",
+    ),
+    ffmpeg: bool = typer.Option(
+        True,
+        "--ffmpeg/--no-ffmpeg",
+        help="Install missing FFmpeg + ffprobe (default enabled).",
+    ),
+    yt_dlp: bool = typer.Option(
+        True,
+        "--yt-dlp/--no-yt-dlp",
+        help="Install missing yt-dlp for public URL import (default enabled).",
     ),
 ) -> None:
-    """Detect OS and FFmpeg; install FFmpeg if missing after user confirmation."""
+    """Install missing FFmpeg and yt-dlp; either dependency can be skipped."""
     console.print(f"video-analyst setup v{__version__}")
     console.print(f"OS family: {get_os_family()}")
     tools = ensure_tools_directory()
     console.print(f"Shared tools directory: {tools}")
 
-    try:
-        env = install_ffmpeg(confirm=True, assume_yes=yes)
-    except FFmpegInstallError as exc:
-        console.print(f"[red]Setup failed:[/red] {escape(str(exc))}")
-        raise typer.Exit(1) from exc
-    except FFmpegNotFoundError as exc:
-        console.print(f"[red]FFmpeg still missing:[/red] {escape(str(exc))}")
-        raise typer.Exit(1) from exc
+    if ffmpeg:
+        try:
+            env = install_ffmpeg(confirm=True, assume_yes=yes)
+        except FFmpegInstallError as exc:
+            console.print(f"[red]FFmpeg setup failed:[/red] {escape(str(exc))}")
+            raise typer.Exit(1) from exc
+        except FFmpegNotFoundError as exc:
+            console.print(f"[red]FFmpeg still missing:[/red] {escape(str(exc))}")
+            raise typer.Exit(1) from exc
+        console.print(f"[green]FFmpeg OK[/green] — {env.ffmpeg_path}")
+        console.print(f"[green]ffprobe OK[/green] — {env.ffprobe_path}")
+    else:
+        console.print("FFmpeg setup skipped (--no-ffmpeg).")
 
-    console.print(f"[green]FFmpeg OK[/green] — {env.ffmpeg_path}")
-    console.print(f"[green]ffprobe OK[/green] — {env.ffprobe_path}")
+    if yt_dlp:
+        try:
+            ytdlp_env = install_ytdlp(confirm=True, assume_yes=yes)
+        except YtDlpInstallError as exc:
+            console.print(f"[red]yt-dlp setup failed:[/red] {escape(str(exc))}")
+            raise typer.Exit(1) from exc
+        except YtDlpNotFoundError as exc:
+            console.print(f"[red]yt-dlp still missing:[/red] {escape(str(exc))}")
+            raise typer.Exit(1) from exc
+        console.print(f"[green]yt-dlp OK[/green] — {ytdlp_env.path}")
+    else:
+        console.print("yt-dlp setup skipped (--no-yt-dlp).")
+
     console.print("")
     code = _print_doctor()
     raise typer.Exit(code)
@@ -239,6 +280,123 @@ def clean_cmd(
     console.print("[green]Clean complete. Source video preserved.[/green]")
 
 
+def _run_source_import_cli(
+    *,
+    url: str,
+    output: Path,
+    subtitle_language: str,
+    playlist: bool,
+    part: int | None,
+    cookies: Path | None,
+) -> None:
+    from video_analyst.source.importer import import_url
+
+    try:
+        result = import_url(
+            url,
+            output,
+            subtitle_language=subtitle_language,
+            playlist=playlist,
+            no_playlist=not playlist,
+            part=part,
+            cookies=cookies,
+        )
+    except VideoAnalystError as exc:
+        console.print(f"[red]Source import failed:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        console.print(f"[red]Unexpected error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+
+    console.print(f"[green]STATUS: {result.status}[/green]")
+    console.print(f"Video:    {result.video_path}")
+    console.print(f"Manifest: {result.manifest_path}")
+    console.print(
+        "Core pipeline remains local-file-only; next: "
+        f"video-analyst prepare {result.video_path} -o {output}"
+    )
+
+
+@app.command("import-url")
+def import_url_cmd(
+    url: str = typer.Argument(..., help="Public HTTP(S) video URL (Bilibili included)"),
+    output: Path = typer.Option(
+        Path("./video_analyst_output"), "--output", "-o", help="Output directory"
+    ),
+    subtitle_language: str = typer.Option(
+        "all",
+        "--subtitle-language",
+        help="Subtitle selection: zh-Hans, zh-Hant, zh, ja, en, or all.",
+    ),
+    playlist: bool = typer.Option(
+        False,
+        "--playlist",
+        help="Explicitly allow playlist downloads (default is --no-playlist).",
+    ),
+    part: int | None = typer.Option(
+        None,
+        "--part",
+        min=1,
+        help="Explicit playlist/collection item number; never implicit.",
+    ),
+    cookies: Path | None = typer.Option(
+        None,
+        "--cookies",
+        help="Explicit Netscape cookie file; no browser sessions are read.",
+    ),
+) -> None:
+    """Import a public URL into a local source sidecar (no analysis)."""
+
+    _run_source_import_cli(
+        url=url,
+        output=output,
+        subtitle_language=subtitle_language,
+        playlist=playlist,
+        part=part,
+        cookies=cookies,
+    )
+
+
+@app.command("download-source")
+def download_source_cmd(
+    url: str = typer.Argument(..., help="Public HTTP(S) video URL (Bilibili included)"),
+    output: Path = typer.Option(
+        Path("./video_analyst_output"), "--output", "-o", help="Output directory"
+    ),
+    subtitle_language: str = typer.Option(
+        "all",
+        "--subtitle-language",
+        help="Subtitle selection: zh-Hans, zh-Hant, zh, ja, en, or all.",
+    ),
+    playlist: bool = typer.Option(
+        False,
+        "--playlist",
+        help="Explicitly allow playlist downloads (default is --no-playlist).",
+    ),
+    part: int | None = typer.Option(
+        None,
+        "--part",
+        min=1,
+        help="Explicit playlist/collection item number; never implicit.",
+    ),
+    cookies: Path | None = typer.Option(
+        None,
+        "--cookies",
+        help="Explicit Netscape cookie file; no browser sessions are read.",
+    ),
+) -> None:
+    """Alias for import-url."""
+
+    _run_source_import_cli(
+        url=url,
+        output=output,
+        subtitle_language=subtitle_language,
+        playlist=playlist,
+        part=part,
+        cookies=cookies,
+    )
+
+
 @app.command("prepare")
 def prepare_cmd(
     video: Path = typer.Argument(..., help="Local video file path"),
@@ -271,9 +429,36 @@ def prepare_cmd(
         "--user-request",
         help="Optional analysis request stored into batch contracts.",
     ),
+    at: list[str] = typer.Option(
+        [],
+        "--at",
+        help="Pin an absolute coarse frame timestamp (repeatable: SS, MM:SS, HH:MM:SS).",
+    ),
+    coarse_dedupe: bool = typer.Option(
+        True,
+        "--coarse-dedupe/--no-coarse-dedupe",
+        help="Remove pixel-only near-duplicate coarse frames (default on).",
+    ),
+    coarse_dedupe_threshold: float = typer.Option(
+        2.0,
+        "--coarse-dedupe-threshold",
+        min=0.0,
+        help="Mean grayscale thumbnail delta threshold (0..255).",
+    ),
 ) -> None:
     """Stage 1: local prepare (media + ASR + coarse frames). No vision API."""
     from video_analyst.workflow.prepare import run_prepare
+    from video_analyst.config import AppConfig
+    from video_analyst.inspection.prepare import parse_timestamp
+
+    try:
+        pinned_timestamps = [parse_timestamp(value) for value in at]
+    except ValueError as exc:
+        console.print(f"[red]Invalid --at timestamp:[/red] {escape(str(exc))}")
+        raise typer.Exit(2) from exc
+    cfg = AppConfig()
+    cfg.phase2.coarse_dedupe_enabled = coarse_dedupe
+    cfg.phase2.coarse_dedupe_threshold = coarse_dedupe_threshold
 
     try:
         result = run_prepare(
@@ -285,6 +470,8 @@ def prepare_cmd(
             multilingual=multilingual,
             llm_calibrate=llm_calibrate,
             user_request=user_request,
+            config=cfg,
+            pinned_timestamps=pinned_timestamps,
         )
     except EnvironmentBlockedError as exc:
         console.print(f"[red]Environment blocked:[/red] {escape(str(exc))}")
@@ -366,6 +553,143 @@ def analyze_cmd(
     console.print(f"Active JSON: {sub / 'subtitles.json'}")
     console.print(
         "Tip: use `video-analyst prepare` to also package coarse agent inputs."
+    )
+
+
+def _run_inspection_prepare_cli(
+    *,
+    video: Path,
+    output: Path,
+    at: list[str],
+    start: str | None,
+    end: str | None,
+    fps: int,
+    dedupe: bool,
+    dedupe_threshold: float,
+) -> None:
+    from video_analyst.inspection.prepare import run_inspection_prepare
+
+    try:
+        result = run_inspection_prepare(
+            video_path=video,
+            output_dir=output,
+            at=at,
+            start=start,
+            end=end,
+            fps=fps,
+            dedupe=dedupe,
+            dedupe_threshold=dedupe_threshold,
+        )
+    except VideoAnalystError as exc:
+        console.print(f"[red]Inspection prepare failed:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        console.print(f"[red]Unexpected error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+
+    console.print(f"[green]STATUS: {result.status}[/green]")
+    console.print(f"Manifest: {result.manifest_path}")
+    console.print(f"Frames:   {result.output / 'frames'} ({result.frame_count} kept)")
+    console.print(f"Sheets:   {result.output / 'contact_sheets'}")
+    console.print(
+        "This sidecar does not change coarse/fine status; the current Agent must "
+        "open every listed image."
+    )
+
+
+@app.command("inspect-prepare")
+def inspect_prepare_cmd(
+    video: Path = typer.Argument(..., help="Local source video path"),
+    output: Path = typer.Option(
+        Path("./video_analyst_output"), "--output", "-o", help="Output directory"
+    ),
+    at: list[str] = typer.Option(
+        [],
+        "--at",
+        help="Pin an absolute timestamp (repeatable: SS, MM:SS, HH:MM:SS).",
+    ),
+    start: str | None = typer.Option(
+        None, "--start", help="Focus start (SS, MM:SS, or HH:MM:SS)."
+    ),
+    end: str | None = typer.Option(
+        None, "--end", help="Focus end (SS, MM:SS, or HH:MM:SS)."
+    ),
+    fps: int = typer.Option(
+        5,
+        "--fps",
+        help="Inspection FPS; only 5, 10, or 15 are allowed.",
+    ),
+    dedupe: bool = typer.Option(
+        True,
+        "--dedupe/--no-dedupe",
+        help="Apply pixel-only near-duplicate reduction (pinned frames are immune).",
+    ),
+    dedupe_threshold: float = typer.Option(
+        2.0,
+        "--dedupe-threshold",
+        min=0.0,
+        help="Mean grayscale thumbnail delta threshold (0..255).",
+    ),
+) -> None:
+    """Prepare independent timestamped visual inspection inputs (no analysis)."""
+
+    _run_inspection_prepare_cli(
+        video=video,
+        output=output,
+        at=at,
+        start=start,
+        end=end,
+        fps=fps,
+        dedupe=dedupe,
+        dedupe_threshold=dedupe_threshold,
+    )
+
+
+@app.command("focus-prepare")
+def focus_prepare_cmd(
+    video: Path = typer.Argument(..., help="Local source video path"),
+    output: Path = typer.Option(
+        Path("./video_analyst_output"), "--output", "-o", help="Output directory"
+    ),
+    at: list[str] = typer.Option(
+        [],
+        "--at",
+        help="Pin an absolute timestamp (repeatable: SS, MM:SS, HH:MM:SS).",
+    ),
+    start: str | None = typer.Option(
+        None, "--start", help="Focus start (SS, MM:SS, or HH:MM:SS)."
+    ),
+    end: str | None = typer.Option(
+        None, "--end", help="Focus end (SS, MM:SS, or HH:MM:SS)."
+    ),
+    fps: int = typer.Option(
+        5,
+        "--fps",
+        help="Inspection FPS; only 5, 10, or 15 are allowed.",
+    ),
+    dedupe: bool = typer.Option(
+        True,
+        "--dedupe/--no-dedupe",
+        help="Apply pixel-only near-duplicate reduction (pinned frames are immune).",
+    ),
+    dedupe_threshold: float = typer.Option(
+        2.0,
+        "--dedupe-threshold",
+        min=0.0,
+        help="Mean grayscale thumbnail delta threshold (0..255).",
+    ),
+) -> None:
+    """Alias for inspect-prepare with a focused timestamp range."""
+
+    _run_inspection_prepare_cli(
+        video=video,
+        output=output,
+        at=at,
+        start=start,
+        end=end,
+        fps=fps,
+        dedupe=dedupe,
+        dedupe_threshold=dedupe_threshold,
     )
 
 

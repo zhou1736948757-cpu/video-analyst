@@ -1,8 +1,8 @@
 # Privacy & Data Handling
 
-Video Analyst processes video locally but may send derived data (frames,
-contact sheets, audio, subtitles) to external API providers when configured.
-This document explains exactly what data stays local and what is transmitted.
+Video Analyst processes video locally. The current product path keeps source
+video, frames, contact sheets, analysis JSON, and reports local; it does not
+send frames to an external vision API.
 
 ## Data that stays on your machine
 
@@ -17,9 +17,10 @@ This document explains exactly what data stays local and what is transmitted.
 - **Telemetry** (`telemetry/calls.jsonl` etc.): local only, never transmitted.
 - **Cache** (`cache/pipeline_state.json`): local only.
 
-## Data sent to external providers
+## Optional external ASR
 
-What gets transmitted depends on which providers you configure:
+Only the optional Groq ASR backend can receive derived audio when explicitly
+configured:
 
 ### Groq (ASR, optional)
 
@@ -28,34 +29,9 @@ What gets transmitted depends on which providers you configure:
 - **Avoid**: use local Whisper (`pip install 'video-analyst[local-whisper]'`)
   for a fully offline ASR path.
 
-### OpenAI-compatible vision provider (optional)
-
-- **Sent**: base64-encoded contact sheet images, detail frame images, and the
-  text prompt (including subtitle context and refinement questions).
-- **NOT sent**: the source video file, the audio, or any frame not in the
-  current batch.
-- **Purpose**: coarse and fine visual analysis.
-
-### Gemini (stub)
-
-- Not implemented. Constructing the Gemini provider raises
-  `FineVisionProviderUnavailableError`.
-
-## Relay / proxy endpoints
-
-If you set `VIDEO_ANALYST_VISION_BASE_URL` to a non-official host (a relay or
-proxy), that operator can inspect, log, or cache your images and prompts. Use
-relays you control or trust. For sensitive content, use `--vision-provider mock`
-(no network) or a self-hosted vision model.
-
-## BYOK does not mean "no provider retention"
-
-Bring-Your-Own-Key means Video Analyst never sees or stores your key. It does
-**not** prevent the provider from retaining the images/audio you send them
-according to that provider's data policy. Review your provider's policy for:
-- Training-data usage
-- Retention period
-- Logging and human review
+There is no vision-provider upload path in the product contract. The current
+conversation Agent opens the prepared images in-session and writes the existing
+analysis schemas.
 
 ## Deleting local data
 
@@ -72,8 +48,8 @@ For finer control:
 - `--analysis-only`: removes `analysis/` only.
 - `--cache-only`: removes `cache/` only.
 
-**Provider-side retention** (images/audio already sent to a cloud API) is
-governed by that provider's data policy and cannot be cleared by Video Analyst.
+If you use Groq ASR, provider-side audio retention is governed by Groq's data
+policy and cannot be cleared by Video Analyst.
 
 ## API key safety
 

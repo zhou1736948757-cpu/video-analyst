@@ -6,6 +6,7 @@ Does NOT call visual models.
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -168,6 +169,71 @@ def extract_scene_frames(
     return frames
 
 
+def extract_pinned_frames(
+    video_path: Path,
+    out_dir: Path,
+    env: FFmpegEnvironment,
+    timestamps: list[float],
+) -> list[dict[str, Any]]:
+    """Extract explicitly requested absolute timestamps for coarse inputs.
+
+    These frames are user-pinned evidence and are never removed by the
+    pixel-only coarse dedupe pass.  ``-ss`` is intentionally expressed in the
+    source video's absolute timeline; no relative timestamp is inferred from
+    the output filename.
+    """
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for p in out_dir.glob("pinned_*.jpg"):
+        p.unlink()
+    clean: list[float] = []
+    for value in timestamps:
+        try:
+            timestamp = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(timestamp) and timestamp >= 0:
+            clean.append(round(timestamp, 6))
+    clean = sorted(set(clean))
+
+    frames: list[dict[str, Any]] = []
+    for index, timestamp in enumerate(clean):
+        path = out_dir / f"pinned_{index:06d}.jpg"
+        result = run_command(
+            [
+                env.ffmpeg_path,
+                "-y",
+                "-nostdin",
+                "-ss",
+                f"{timestamp:.6f}",
+                "-i",
+                str(video_path),
+                "-frames:v",
+                "1",
+                "-q:v",
+                "3",
+                str(path),
+            ],
+            timeout=120,
+        )
+        if not result.ok or not path.is_file():
+            raise Phase2PrepareError(
+                f"Pinned frame extraction failed at {timestamp:.3f}s: "
+                f"{(result.stderr or '')[-300:]}"
+            )
+        frames.append(
+            {
+                "path": str(path),
+                "time": timestamp,
+                "kind": "pinned",
+                "pinned": True,
+                "index": index,
+            }
+        )
+    log.info("Extracted %d user-pinned coarse frames", len(frames))
+    return frames
+
+
 def map_subtitles_to_window(
     doc: SubtitleDocument,
     start: float,
@@ -187,6 +253,7 @@ def build_visual_batches(
     meta: SubtitleMetadata,
     fixed_frames: list[dict[str, Any]],
     scene_frames: list[dict[str, Any]],
+    pinned_frames: list[dict[str, Any]] | None = None,
     batch_seconds: float = 20.0,
     user_request: str = "",
     duration: float | None = None,
@@ -205,17 +272,31 @@ def build_visual_batches(
     idx = 1
     while t < duration - 1e-6:
         end = min(duration, t + batch_seconds)
+        include_end = end >= duration - 1e-6
+
+        def in_window(frame: dict[str, Any]) -> bool:
+            value = frame.get("time")
+            if value is None:
+                return False
+            timestamp = float(value)
+            return t <= timestamp < end or (include_end and abs(timestamp - end) <= 1e-6)
+
         frames = [
             f
             for f in fixed_frames
-            if f.get("time") is not None and t <= float(f["time"]) < end
+            if in_window(f)
         ]
         scene_in_window = [
             f
             for f in scene_frames
-            if f.get("time") is not None and t <= float(f["time"]) < end
+            if in_window(f)
         ]
-        frames = frames + scene_in_window
+        pinned_in_window = [
+            f
+            for f in (pinned_frames or [])
+            if in_window(f)
+        ]
+        frames = frames + scene_in_window + pinned_in_window
         subs = map_subtitles_to_window(doc, t, end)
         batches.append(
             VisualBatch(
@@ -244,6 +325,7 @@ def prepare_phase2(
     cfg: Phase2Config | None = None,
     user_request: str = "",
     resume: bool = True,
+    pinned_timestamps: list[float] | None = None,
 ) -> Phase2PrepareResult:
     cfg = cfg or Phase2Config()
     if not cfg.enabled:
@@ -251,6 +333,20 @@ def prepare_phase2(
 
     store = CacheStore(layout)
     doc, meta = load_active_subtitles_for_phase2(layout)
+
+    # Visual coverage must follow the probed media duration, not the active
+    # subtitle document. ASR can be incomplete or hallucinate a short segment;
+    # using doc.duration here would silently drop the video's visual tail.
+    visual_duration = float(doc.duration or 0.0)
+    if layout.media_info_json.is_file():
+        try:
+            probed_duration = float(
+                store.read_json(layout.media_info_json).get("duration") or 0.0
+            )
+            if probed_duration > visual_duration:
+                visual_duration = probed_duration
+        except (TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
+            log.warning("Could not read probed media duration for Phase 2: %s", exc)
 
     # Fixed frames
     if resume and any(layout.phase2_fixed_frames_dir.glob("frame_*.jpg")):
@@ -308,15 +404,75 @@ def prepare_phase2(
                 encoding="utf-8",
             )
 
+    # Explicit --at timestamps are independent of the fixed/scene caches.  A
+    # request with no pins still produces an empty list and does not affect the
+    # historical prepare path.
+    pinned_values: list[float] = []
+    for value in pinned_timestamps or []:
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(numeric) and numeric >= 0:
+            pinned_values.append(round(numeric, 6))
+    pinned_values = sorted(set(pinned_values))
+    pinned_ts_file = layout.phase2_pinned_frames_dir / "_timestamps.json"
+    if pinned_values:
+        if resume and any(layout.phase2_pinned_frames_dir.glob("pinned_*.jpg")) and pinned_ts_file.is_file():
+            try:
+                cached_ts = sorted(
+                    {
+                        round(float(value), 6)
+                        for value in json.loads(pinned_ts_file.read_text(encoding="utf-8"))
+                    }
+                )
+            except (TypeError, ValueError, OSError, json.JSONDecodeError):
+                cached_ts = []
+            if cached_ts == pinned_values:
+                pinned = []
+                for index, path in enumerate(
+                    sorted(layout.phase2_pinned_frames_dir.glob("pinned_*.jpg"))
+                ):
+                    if index >= len(pinned_values):
+                        break
+                    pinned.append(
+                        {
+                            "path": str(path),
+                            "time": pinned_values[index],
+                            "kind": "pinned",
+                            "pinned": True,
+                            "index": index,
+                        }
+                    )
+            else:
+                pinned = extract_pinned_frames(
+                    video_path, layout.phase2_pinned_frames_dir, env, pinned_values
+                )
+        else:
+            pinned = extract_pinned_frames(
+                video_path, layout.phase2_pinned_frames_dir, env, pinned_values
+            )
+        pinned_ts_file.write_text(
+            json.dumps(pinned_values, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    else:
+        pinned = []
+        for p in layout.phase2_pinned_frames_dir.glob("pinned_*.jpg"):
+            p.unlink()
+        if pinned_ts_file.is_file():
+            pinned_ts_file.unlink()
+
     # Subtitle mapping + batches always rebuild if missing (cheap; depends on active subs)
     batches = build_visual_batches(
         doc=doc,
         meta=meta,
         fixed_frames=fixed,
         scene_frames=scene,
+        pinned_frames=pinned,
         batch_seconds=cfg.batch_seconds,
         user_request=user_request,
-        duration=doc.duration,
+        duration=visual_duration,
     )
     mapping = {
         "schema_version": "1.0",
@@ -339,6 +495,7 @@ def prepare_phase2(
         {
             "schema_version": "1.0",
             "batches": [b.model_dump(mode="json") for b in batches],
+            "pinned_timestamps": pinned_values,
             "subtitle_metadata": meta.model_dump(mode="json"),
             "note": "Prep only — no visual model calls yet",
         },
@@ -347,8 +504,10 @@ def prepare_phase2(
     return Phase2PrepareResult(
         fixed_frames_dir=str(layout.phase2_fixed_frames_dir),
         scene_frames_dir=str(layout.phase2_scene_frames_dir),
+        pinned_frames_dir=str(layout.phase2_pinned_frames_dir),
         fixed_frame_count=len(fixed),
         scene_frame_count=len(scene),
+        pinned_frame_count=len(pinned),
         batches_path=str(layout.phase2_batches_json),
         batch_count=len(batches),
         subtitle_metadata=meta,

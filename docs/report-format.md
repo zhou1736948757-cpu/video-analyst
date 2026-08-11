@@ -4,6 +4,11 @@ Video Analyst generates a structured final report from Epic 5. All outputs are
 derived from a single `FinalVideoAnalysis` JSON — Markdown and CSV never
 re-derive facts independently.
 
+The legacy `status` and `provider_mode` fields remain in the schema for
+backward-compatible reports. The current runtime provenance is always
+`vision_execution_mode=in_session_agent`, with `external_api_used=false` and
+`api_key_used=false`.
+
 ## Output files
 
 ```text

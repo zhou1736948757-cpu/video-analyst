@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from video_analyst.exceptions import FFmpegNotFoundError
+from video_analyst.exceptions import FFmpegNotFoundError, YtDlpNotFoundError
 from video_analyst.process import run_command
 
 
@@ -51,6 +51,12 @@ class FFmpegEnvironment:
 
 
 @dataclass(frozen=True)
+class YtDlpEnvironment:
+    path: Path
+    version: str
+
+
+@dataclass(frozen=True)
 class EnvironmentReport:
     os_family: str
     python_ok: bool
@@ -60,10 +66,17 @@ class EnvironmentReport:
     groq_api_key_configured: bool
     local_whisper_installed: bool
     tools_bin: Path
+    yt_dlp: YtDlpEnvironment | None = None
+    yt_dlp_error: str | None = None
 
     @property
     def ready(self) -> bool:
         return self.python_ok and self.ffmpeg is not None
+
+    @property
+    def url_import_ready(self) -> bool:
+        """Whether the explicit public-URL import layer can run."""
+        return self.python_ok and self.yt_dlp is not None
 
 
 def _candidate_bin_dirs() -> list[Path]:
@@ -73,6 +86,8 @@ def _candidate_bin_dirs() -> list[Path]:
         [
             Path("/opt/homebrew/bin"),
             Path("/usr/local/bin"),
+            # A user-level shared Skill directory is a supported fallback.
+            Path.home() / "skills",
         ]
     )
     # Common Windows install locations (checked only if present)
@@ -151,6 +166,29 @@ def detect_ffmpeg_environment() -> FFmpegEnvironment:
     )
 
 
+def detect_ytdlp_environment() -> YtDlpEnvironment:
+    """Locate and verify the yt-dlp executable used by explicit URL import."""
+
+    binary = _which_command("yt-dlp")
+    if binary is None and get_os_family() == "windows":
+        binary = _which_command("yt-dlp.exe")
+    if binary is None:
+        raise YtDlpNotFoundError(
+            "yt-dlp is missing. Run `video-analyst setup` or install it manually."
+        )
+
+    result = run_command([binary, "--version"], timeout=30)
+    if not result.ok:
+        detail = (result.stderr or result.stdout).strip()[:500]
+        raise YtDlpNotFoundError(
+            f"{binary.name} exited with code {result.returncode}: {detail}"
+        )
+    line = (result.stdout or result.stderr).splitlines()
+    if not line:
+        raise YtDlpNotFoundError(f"{binary.name} produced empty version output")
+    return YtDlpEnvironment(path=binary, version=line[0].strip())
+
+
 def is_local_whisper_installed() -> bool:
     try:
         import whisper  # noqa: F401
@@ -174,6 +212,13 @@ def collect_environment_report() -> EnvironmentReport:
     except FFmpegNotFoundError as exc:
         ffmpeg_error = str(exc)
 
+    yt_dlp: YtDlpEnvironment | None = None
+    yt_dlp_error: str | None = None
+    try:
+        yt_dlp = detect_ytdlp_environment()
+    except YtDlpNotFoundError as exc:
+        yt_dlp_error = str(exc)
+
     return EnvironmentReport(
         os_family=get_os_family(),
         python_ok=python_ok,
@@ -183,6 +228,8 @@ def collect_environment_report() -> EnvironmentReport:
         groq_api_key_configured=is_groq_api_key_configured(),
         local_whisper_installed=is_local_whisper_installed(),
         tools_bin=tools_bin_dir(),
+        yt_dlp=yt_dlp,
+        yt_dlp_error=yt_dlp_error,
     )
 
 

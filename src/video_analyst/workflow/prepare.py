@@ -9,18 +9,25 @@ analysis/coarse/inputs/
 from __future__ import annotations
 
 import json
+import copy
 import shutil
 from pathlib import Path
 from typing import Any
 
 from video_analyst.cache.store import CacheStore, OutputLayout
-from video_analyst.config import AppConfig, DEFAULT_CONFIG, RefinementConfig
+from video_analyst.config import (
+    AppConfig,
+    DEFAULT_CONFIG,
+    Phase2Config,
+    RefinementConfig,
+)
 from video_analyst.env.detect import ensure_ready_for_media
 from video_analyst.exceptions import Phase2PrepareError, VideoAnalystError
 from video_analyst.logging.setup import get_logger, setup_logging
 from video_analyst.pipeline.phase1 import run_phase1
 from video_analyst.pipeline.video_precheck import validate_video_input
 from video_analyst.refinement.contact_sheet import build_contact_sheets
+from video_analyst.phase2.deduplicate import DedupeResult, deduplicate_frames
 from video_analyst.util.hashing import sha256_file
 from video_analyst.workflow.state import (
     WorkflowState,
@@ -74,6 +81,8 @@ def package_coarse_agent_inputs(
     *,
     video_id: str | None = None,
     sheet_cfg: RefinementConfig | None = None,
+    phase2_cfg: Phase2Config | None = None,
+    pinned_timestamps: list[float] | None = None,
 ) -> dict[str, Any]:
     """Build analysis/coarse/inputs/ from phase2 visual batches.
 
@@ -129,16 +138,58 @@ def package_coarse_agent_inputs(
         if not dest.exists():
             shutil.copy2(layout.media_info_json, dest)
 
+    phase2_cfg = phase2_cfg or Phase2Config()
     all_frames: list[dict[str, Any]] = []
     all_sheets: list[dict[str, Any]] = []
     batch_summaries: list[dict[str, Any]] = []
     scene_meta: list[dict[str, Any]] = []
 
+    # Gather all valid source candidates before packaging.  Running one global
+    # chronological pass means a scene frame is protected even when it is
+    # visually identical to a fixed-FPS frame in an adjacent batch.
+    candidates: list[dict[str, Any]] = []
+    candidate_index = 0
+    for batch in batches:
+        batch_id = str(batch["batch_id"])
+        for fr in batch.get("frames") or []:
+            src_path = Path(fr.get("path") or "")
+            if not src_path.is_file():
+                alt = root / str(fr.get("path") or "")
+                if alt.is_file():
+                    src_path = alt
+            if not src_path.is_file():
+                log.warning("frame missing for %s: %s", batch_id, fr.get("path"))
+                continue
+            item = dict(fr)
+            item["path"] = str(src_path)
+            item["batch_id"] = batch_id
+            item["candidate_index"] = candidate_index
+            candidates.append(item)
+            candidate_index += 1
+
+    dedupe: DedupeResult = deduplicate_frames(
+        candidates,
+        threshold=phase2_cfg.coarse_dedupe_threshold,
+        enabled=phase2_cfg.coarse_dedupe_enabled,
+        pinned_timestamps=pinned_timestamps or [],
+        algorithm_version=phase2_cfg.coarse_dedupe_algorithm_version,
+        thumbnail_size=phase2_cfg.coarse_dedupe_thumbnail_size,
+    )
+    kept_indexes = {int(fr["candidate_index"]) for fr in dedupe.kept}
+    candidates_by_batch: dict[str, list[dict[str, Any]]] = {}
+    for fr in candidates:
+        if int(fr["candidate_index"]) in kept_indexes:
+            candidates_by_batch.setdefault(str(fr["batch_id"]), []).append(fr)
+
+    # Map the input candidate index to the public frame id assigned below. This
+    # lets the manifest link every dropped candidate to the exact kept frame.
+    candidate_frame_ids: dict[int, str] = {}
+
     for batch in batches:
         batch_id = str(batch["batch_id"])
         b_start = float(batch.get("start") or 0)
         b_end = float(batch.get("end") or 0)
-        raw_frames = batch.get("frames") or []
+        raw_frames = candidates_by_batch.get(batch_id, [])
         subs = batch.get("subtitles") or []
 
         packaged_frames: list[dict[str, Any]] = []
@@ -188,9 +239,11 @@ def package_coarse_agent_inputs(
                 "kind": kind,
                 "sha256": sha,
                 "sources": [kind],
+                "retained_reason": list(fr.get("retained_reason") or ["pixel_change"]),
             }
             packaged_frames.append(entry)
             all_frames.append(entry)
+            candidate_frame_ids[int(fr["candidate_index"])] = frame_id
             sheet_frame_defs.append(
                 {
                     "frame_id": frame_id,
@@ -242,8 +295,11 @@ def package_coarse_agent_inputs(
             "user_request": batch.get("user_request") or "",
             "instruction": {
                 "agent_must_inspect_images": True,
+                "agent_must_open_every_listed_image": True,
+                "timestamp_alignment_is_required": True,
                 "do_not_infer_from_filenames_alone": True,
                 "subtitles_are_supporting_context_only": True,
+                "semantic_cues_require_agent_requested_pins": True,
             },
         }
         batch_path = batch_inputs_dir / f"{batch_id}.json"
@@ -258,6 +314,48 @@ def package_coarse_agent_inputs(
                 "batch_input_path": _rel(root, batch_path),
             }
         )
+
+    retained_frames: list[dict[str, Any]] = []
+    for frame in dedupe.kept:
+        idx = int(frame["candidate_index"])
+        retained_frames.append(
+            {
+                "candidate_index": idx,
+                "frame_id": candidate_frame_ids.get(idx),
+                "batch_id": str(frame.get("batch_id") or ""),
+                "timestamp": round(float(frame.get("timestamp") or frame.get("time") or 0), 6),
+                "kind": str(frame.get("kind") or "candidate"),
+                "retained_reason": list(frame.get("retained_reason") or []),
+                "path": str(frame.get("path") or ""),
+            }
+        )
+    dropped_candidates: list[dict[str, Any]] = []
+    for drop in dedupe.dropped:
+        row = dict(drop)
+        kept_index = row.get("kept_candidate_index")
+        row["kept_frame_id"] = candidate_frame_ids.get(int(kept_index)) if kept_index is not None else None
+        dropped_candidates.append(row)
+    dedupe_payload = {
+        "enabled": dedupe.enabled,
+        "algorithm_version": dedupe.algorithm_version,
+        "thumbnail_size": dedupe.thumbnail_size,
+        "threshold": dedupe.threshold,
+        "candidate_count": dedupe.candidate_count,
+        "kept_count": dedupe.kept_count,
+        "dropped_count": dedupe.dropped_count,
+        "retained_frames": retained_frames,
+        "dropped_candidates": dropped_candidates,
+        "dropped_to_kept": [
+            {
+                "dropped_candidate_index": d.get("candidate_index"),
+                "dropped_timestamp": d.get("timestamp"),
+                "kept_candidate_index": d.get("kept_candidate_index"),
+                "kept_frame_id": d.get("kept_frame_id"),
+                "delta": d.get("delta"),
+            }
+            for d in dropped_candidates
+        ],
+    }
 
     manifest = {
         "schema_version": COARSE_INPUTS_SCHEMA,
@@ -275,6 +373,14 @@ def package_coarse_agent_inputs(
         "frames": all_frames,
         "contact_sheets": all_sheets,
         "scene_change_metadata": scene_meta,
+        "dedupe": dedupe_payload,
+        # Flat aliases make the preparation audit easy to inspect without
+        # requiring a consumer to know the nested key name.
+        "candidate_count": dedupe.candidate_count,
+        "kept_count": dedupe.kept_count,
+        "dropped_count": dedupe.dropped_count,
+        "dedupe_threshold": dedupe.threshold,
+        "dedupe_algorithm_version": dedupe.algorithm_version,
         "paths": {
             "frames": _rel(root, frames_dir),
             "contact_sheets": _rel(root, sheets_dir),
@@ -311,9 +417,11 @@ def run_prepare(
     llm_calibrate: bool = True,
     user_request: str = "",
     config: AppConfig | None = None,
+    pinned_timestamps: list[float] | None = None,
 ) -> dict[str, Any]:
     """Stage 1 end-to-end: media + ASR + phase2 + agent input packaging."""
-    cfg = config or DEFAULT_CONFIG
+    # Never mutate the process-global default when a CLI override is supplied.
+    cfg = copy.deepcopy(config or DEFAULT_CONFIG)
     resolved_video = validate_video_input(video_path)
     output_dir = output_dir.expanduser().resolve()
 
@@ -346,6 +454,7 @@ def run_prepare(
         run_phase2_prep=True,
         user_request=user_request,
         config=cfg,
+        pinned_timestamps=pinned_timestamps,
     )
 
     # Package agent inputs (frames + contact sheets + manifest)
@@ -353,6 +462,8 @@ def run_prepare(
         layout,
         video_id=resolved_video.stem,
         sheet_cfg=cfg.refinement,
+        phase2_cfg=cfg.phase2,
+        pinned_timestamps=pinned_timestamps,
     )
 
     state.set_status(
