@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RefinementPlan",
+  "description": "Agent-written adaptive refinement plan. FPS restricted to 5/10/15 (hard rule 10); short intervals, never full-video 15 FPS. evidence_frame_ids and source_batch_ids must reference objects that exist (hard rule 9).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["plan_id", "intervals", "terminal_refinement_status"],
+  "properties": {
+    "plan_id": { "type": "string", "minLength": 1 },
+    "intervals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "interval_id",
+          "start",
+          "end",
+          "priority",
+          "source_batch_ids",
+          "evidence_frame_ids",
+          "refinement_questions"
+        ],
+        "properties": {
+          "interval_id": { "type": "string", "minLength": 1 },
+          "start": { "type": "number", "minimum": 0 },
+          "end": { "type": "number", "minimum": 0 },
+          "fps": { "type": "integer", "enum": [5, 10, 15] },
+          "requested_fps": { "type": "integer", "enum": [5, 10, 15] },
+          "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+          "reason": { "type": "string", "minLength": 1 },
+          "reasons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "source_batch_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "evidence_frame_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "refinement_questions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "questions": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "terminal_refinement_status": { "type": "string", "enum": ["required", "not_required"] },
+    "terminal_reason": { "type": "string" },
+    "refinement_questions": { "type": "array", "items": { "type": "string" } },
+    "unknowns": { "type": "array", "items": { "type": "string" } },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vision_execution_mode",
+        "external_api_used",
+        "api_key_used",
+        "token_status",
+        "estimated_cost"
+      ],
+      "properties": {
+        "vision_execution_mode": { "type": "string", "enum": ["in_session_agent"] },
+        "external_api_used": { "type": "boolean" },
+        "api_key_used": { "type": "boolean" },
+        "token_status": { "type": "string" },
+        "estimated_cost": { "type": ["number", "null"] }
+      }
+    }
+  }
+}

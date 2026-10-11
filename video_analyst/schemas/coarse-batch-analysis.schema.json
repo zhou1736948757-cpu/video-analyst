@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CoarseBatchAnalysis",
+  "description": "Agent-written analysis for one coarse batch. Must cite only real frames/contact sheets that exist (hard rule 9). Unknown facts go to unknowns; never invent schema filler (hard rule 12).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "batch_id",
+    "analysis",
+    "summary",
+    "structure",
+    "shot_changes",
+    "motion",
+    "camera_notes",
+    "text_graphics",
+    "transitions",
+    "open_questions",
+    "unknowns",
+    "evidence"
+  ],
+  "properties": {
+    "batch_id": { "type": "string", "minLength": 1 },
+    "analysis": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "subjects": { "type": "array", "items": { "type": "string" } },
+    "scene": { "type": "string" },
+    "structure": { "type": "string", "minLength": 1 },
+    "shot_changes": { "type": "array", "items": { "type": "string" } },
+    "motion": { "type": "string", "minLength": 1 },
+    "camera_notes": { "type": "string", "minLength": 1 },
+    "text_graphics": { "type": "string", "minLength": 1 },
+    "transitions": { "type": "array", "items": { "type": "string" } },
+    "refinement_needs": { "type": "array", "items": { "type": "string" } },
+    "open_questions": { "type": "array", "items": { "type": "string" } },
+    "unknowns": { "type": "array", "items": { "type": "string" } },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low", "unknown"] },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_ids", "contact_sheet_ids", "image_paths"],
+      "properties": {
+        "frame_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "contact_sheet_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "image_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

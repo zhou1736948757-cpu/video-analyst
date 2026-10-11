@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FineBatchAnalysis",
+  "description": "Agent-written analysis for one fine batch (detail frames / fine contact sheets). Evidence must reference real fine detail frames and sheets (hard rule 9).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "batch_id",
+    "interval_id",
+    "analysis",
+    "summary",
+    "observations",
+    "motion_detail",
+    "open_questions",
+    "unknowns",
+    "evidence",
+    "answers_to_refinement_questions"
+  ],
+  "properties": {
+    "batch_id": { "type": "string", "minLength": 1 },
+    "interval_id": { "type": "string", "minLength": 1 },
+    "analysis": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "observations": { "type": "array", "items": { "type": "string" } },
+    "motion_detail": { "type": "string", "minLength": 1 },
+    "transitions": { "type": "array", "items": { "type": "string" } },
+    "text_graphic_motion": { "type": "string" },
+    "answers_to_refinement_questions": { "type": "array", "items": { "type": "string" } },
+    "open_questions": { "type": "array", "items": { "type": "string" } },
+    "unknowns": { "type": "array", "items": { "type": "string" } },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low", "unknown"] },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_ids", "contact_sheet_ids", "image_paths"],
+      "properties": {
+        "frame_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "contact_sheet_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "image_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

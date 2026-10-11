@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FineVideoAnalysis",
+  "description": "Aggregated fine analysis across batches: shots and sections merged from evidence-backed observations. Unresolved facts marked explicitly (hard rule 12).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["analysis_id", "summary", "shots", "sections", "unknowns"],
+  "properties": {
+    "analysis_id": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "shots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["shot_id", "start", "end", "description"],
+        "properties": {
+          "shot_id": { "type": "string", "minLength": 1 },
+          "start": { "type": "number", "minimum": 0 },
+          "end": { "type": "number", "minimum": 0 },
+          "description": { "type": "string", "minLength": 1 },
+          "type": { "type": "string" },
+          "camera": { "type": "string" },
+          "transition": { "type": "string" },
+          "evidence_frame_ids": { "type": "array", "items": { "type": "string" } },
+          "source_batch_ids": { "type": "array", "items": { "type": "string" } },
+          "unresolved": { "type": "boolean" },
+          "unresolved_notes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["section_id", "start", "end", "description"],
+        "properties": {
+          "section_id": { "type": "string", "minLength": 1 },
+          "start": { "type": "number", "minimum": 0 },
+          "end": { "type": "number", "minimum": 0 },
+          "description": { "type": "string", "minLength": 1 },
+          "shot_ids": { "type": "array", "items": { "type": "string" } },
+          "unresolved_notes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "event_merge_notes": { "type": "string" },
+    "unknowns": { "type": "array", "items": { "type": "string" } },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vision_execution_mode",
+        "external_api_used",
+        "api_key_used",
+        "token_status",
+        "estimated_cost"
+      ],
+      "properties": {
+        "vision_execution_mode": { "type": "string", "enum": ["in_session_agent"] },
+        "external_api_used": { "type": "boolean" },
+        "api_key_used": { "type": "boolean" },
+        "token_status": { "type": "string" },
+        "estimated_cost": { "type": ["number", "null"] }
+      }
+    }
+  }
+}
